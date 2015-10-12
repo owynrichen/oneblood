@@ -1,0 +1,224 @@
+<html>
+<head>
+  <style>
+    body { margin: 0; padding: 0 }
+    canvas#c {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translateX(-50%) translateY(-50%);
+      z-index: 0;
+    }
+
+    h1 {
+      font-size: 5rem;
+      font-family: "Helvetica", sans-serif;
+      color: #f00;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      margin: 0;
+      padding: 0;
+      transform: translateX(-50%) translateY(-50%);
+      z-index: 1000;
+      opacity: 0.75;
+    }
+
+    @media screen and (min-width: 600px) {
+      h1 {
+        font-size: 8rem;
+      }
+    }
+
+    @media screen and (min-width: 800px) {
+      h1 {
+        font-size: 10rem;
+      }
+    }
+
+    @media screen and (min-width: 1000px) {
+      h1 {
+        font-size: 15rem;
+      }
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<h1>BLOOD</h1>
+<script>
+  var canvas = document.getElementById("c");
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  var mainloop = function() {
+    updateGame();
+    drawGame();
+  }
+
+ var animFrame = window.requestAnimationFrame ||
+            window.webkitRequestAnimationFrame ||
+            window.mozRequestAnimationFrame    ||
+            window.oRequestAnimationFrame      ||
+            window.msRequestAnimationFrame     ||
+            null ;
+
+  if (animFrame !== null) {
+    var recursiveAnim = function() {
+      mainloop();
+      animFrame(recursiveAnim, canvas);
+    }
+
+    animFrame(recursiveAnim);
+  } else {
+    setInterval(mainloop, 1000.0 / 60.0);
+  }
+
+  Array.prototype.each = function(func) {
+    for(i in this) if (i != "each") func(this[i]);
+  }
+
+  var root = {
+    'canvas' : canvas,
+    'mousePos' : { x: -1, y: -1 },
+    'children' : []
+  };
+
+  function initGame(nodeCount) {
+    root.children = [];
+
+    for(var i = 0; i < nodeCount; i++) {
+      root.children.push({
+        "name" : "O",
+
+        "opacity" : Math.random(),
+        "scale" : 0.5 + Math.random(),
+        "font" : 5 + Math.round(10 * Math.random()),
+
+        "position" : {
+          "x" : Math.random() * window.innerWidth,
+          "y" : Math.random() * window.innerHeight
+        },
+
+        "velocity" : {
+          "x" : -2 + Math.random() * 4,
+          "y" : -2 + Math.random() * 4
+        },
+
+        "resetVelocity" : function() {
+          this.velocity.x = -2 + Math.random() * 4;
+          this.velocity.y = -2 + Math.random() * 4;
+        },
+
+        "bounce" : function(vel) {
+          this.opacity *= 0.9;
+          return -vel *  0.39;
+        },
+
+        "update" : function() {
+          this.position.x += this.velocity.x;
+          this.position.y += this.velocity.y;
+
+          if (this.position.x < 0 && this.velocity.x < 0) {
+            this.velocity.x = this.bounce(this.velocity.x);
+          }
+
+          if (this.position.x > window.innerWidth && this.velocity.x > 0) {
+            this.velocity.x = this.bounce(this.velocity.x);
+          }
+
+          if (this.position.y < 0 && this.velocity.y < 0) {
+            this.velocity.y = this.bounce(this.velocity.y);
+          }
+
+          if(this.position.y > window.innerHeight && this.velocity.y > 0) {
+            this.velocity.y = this.bounce(this.velocity.y);
+          }
+
+          var choice = Math.random();
+
+          if (choice > 0.4) {
+            this.velocity.x *= 0.51 + Math.random();
+          }
+
+          if (choice > 0.9) {
+            this.velocity.x = -this.velocity.x;
+          }
+
+          if (choice > 0.6) {
+            this.velocity.y *= 0.51 + Math.random();
+          }
+
+          if (choice > 0.8) {
+            this.velocity.y = -this.velocity.y;
+          }
+        },
+
+        "draw" : function(context) {
+          context.fillStyle = "rgba(0,0,0," + this.opacity + ")";
+          context.font = this.font + "px Helvetica";
+          context.fillText(this.name, this.position.x, this.position.y);
+        }
+      })
+    }
+  }
+
+  function updateGame() {
+    root.children.each(function(node) {
+      node.update();
+    });
+  }
+
+  function drawGame() {
+    var context = canvas.getContext("2d");
+
+    // var imgData = context.getImageData(0,0,canvas.width,canvas.height);
+    context.fillStyle = 'rgba(255,0,0,1)';
+    context.fillRect(0,0, canvas.width, canvas.height);
+    // context.fillStyle = 'rgba(0,0,0,0.5)';
+    // context.putImageData(imgData, 0, 0, canvas.width, canvas.height);
+    root.children.each(function(node) {
+      node.draw(context);
+    });
+  }
+
+  function getMousePos(canvas, evt) {
+    var rect = canvas.getBoundingClientRect();
+    return {
+      x: evt.clientX - rect.left,
+      y: evt.clientY - rect.top
+    }
+  }
+
+  function writeMessage(canvas, message, pos) {
+    var context = canvas.getContext("2d");
+    context.fillText(message, pos.x, pos.y);
+  }
+
+  canvas.addEventListener('mouseup', function(evt) {
+    var mousePos = getMousePos(canvas, evt);
+    root.children.each(function(node) {
+      node.velocity.x = (mousePos.x - node.position.x) / 100;
+      node.velocity.y = (mousePos.y - node.position.y) / 100;
+      node.opacity *= 1.1;
+    })
+  })
+
+  canvas.addEventListener('mousemove', function(evt) {
+    var mousePos = getMousePos(canvas, evt);
+    root.mousePos = mousePos;
+    // writeMessage(canvas, mousePos.x + "," + mousePos.y, mousePos);
+  }, false);
+
+  var nodeCount = 5000;
+
+  window.onresize = function() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    initGame(nodeCount);
+  }
+
+  initGame(nodeCount);
+</script>
+</body>
+</html>
